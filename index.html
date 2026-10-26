@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>php2shell-scanner</title>
+<style>
+  :root{
+    --bg:#0b0e0f; --panel:#11161a; --panel2:#0e1316; --line:#1d262c;
+    --fg:#c6d0d6; --dim:#6b7a83; --accent:#2de0a7; --accent-dim:#17604a;
+    --red:#ff5c57; --green:#5af78e; --amber:#e5c07b; --grey:#5b6770; --blue:#5aa2f7;
+    --mono:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--mono);
+    font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:18px}
+  header h1{font-size:15px;margin:0;letter-spacing:.5px}
+  header h1 .p{color:var(--accent)}
+  header .cve{color:var(--dim);font-size:11px}
+  header .credit{margin-left:auto;color:var(--dim);font-size:11px}
+  .notice{border:1px solid var(--amber);color:var(--amber);background:#17130a;
+    padding:7px 10px;border-radius:4px;font-size:11px;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1.3fr .7fr;gap:14px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px}
+  label{display:block;color:var(--dim);font-size:11px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px}
+  textarea,input,select{width:100%;background:var(--panel2);color:var(--fg);
+    border:1px solid var(--line);border-radius:4px;padding:8px 9px;font-family:var(--mono);
+    font-size:12.5px;outline:none}
+  textarea:focus,input:focus,select:focus{border-color:var(--accent-dim)}
+  textarea{resize:vertical}
+  .field{margin-bottom:12px}
+  .row{display:flex;gap:10px}
+  .row>.field{flex:1}
+  .chk{display:flex;align-items:center;gap:8px;color:var(--fg);font-size:12px;cursor:pointer}
+  .chk input{width:auto}
+  .btns{display:flex;gap:10px;margin-top:4px}
+  button{font-family:var(--mono);font-size:12.5px;padding:9px 16px;border-radius:4px;
+    border:1px solid var(--accent-dim);background:var(--accent-dim);color:#eafff6;cursor:pointer;
+    letter-spacing:.4px}
+  button:hover{filter:brightness(1.18)}
+  button.ghost{background:transparent;border-color:var(--line);color:var(--dim)}
+  button:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .status{margin:16px 0 10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12px}
+  .bar{flex:1;min-width:140px;height:6px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  .counts span{margin-right:14px}
+  .c-vuln{color:var(--red)} .c-safe{color:var(--green)} .c-inc{color:var(--amber)} .c-err{color:var(--grey)} .c-waf{color:var(--red)}
+  .wafbadge{color:#070a0b;background:var(--red);border-radius:3px;padding:1px 5px;margin-left:6px;
+    font-size:10px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+  .wafvendor{color:var(--red)}
+
+  /* live activity log */
+  .logwrap{margin-top:16px}
+  .loghead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .loghead .spin{width:8px;height:8px;border-radius:50%;background:var(--grey)}
+  .loghead.on .spin{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  #log{background:#070a0b;border:1px solid var(--line);border-radius:6px;height:200px;overflow:auto;
+    padding:8px 10px;font-size:11.5px;line-height:1.65}
+  #log .ln{white-space:pre-wrap;word-break:break-all}
+  .lg-dim{color:var(--dim)} .lg-ok{color:var(--green)} .lg-warn{color:var(--amber)}
+  .lg-err{color:var(--red)} .lg-go{color:var(--blue)} .lg-host{color:var(--accent)}
+  .lg-done{color:var(--accent)}
+
+  .toolbar{display:flex;gap:12px;align-items:center;margin:16px 0 8px;font-size:11px;color:var(--dim)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:400;text-transform:uppercase;font-size:10.5px;letter-spacing:.6px;position:sticky;top:0;background:var(--bg)}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#0f1519}
+  .verdict{font-weight:600;letter-spacing:.3px}
+  .v-VULNERABLE{color:var(--red)}
+  .v-NOTVULNERABLE{color:var(--green)}
+  .v-NOSIGNAL,.v-FIXED,.v-INCONCLUSIVE{color:var(--amber)}
+  .v-ERROR{color:var(--grey)}
+  td.host{word-break:break-all;max-width:360px}
+  .evidence{background:var(--panel2);border-top:1px dashed var(--line)}
+  .evidence pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;
+    color:var(--dim);font-size:11.5px;max-height:320px;overflow:auto}
+  .evidence h4{margin:10px 12px 2px;color:var(--accent);font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:.6px}
+  .muted{color:var(--dim)}
+  .empty{color:var(--dim);padding:26px 4px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="p">php2shell</span>-scanner</h1>
+    <span class="cve" id="cve">CVE-2026-109618 / CVE-2026-109619</span>
+    <span class="credit">engine: assetnote · web UI</span>
+  </header>
+
+  <div class="notice">Authorized targets only. Each probed path sends real exploit traffic (~29&nbsp;MiB) and can exhaust memory on vulnerable hosts.</div>
+
+  <div class="grid">
+    <!-- INPUT -->
+    <div class="panel">
+      <div class="field">
+        <label>Hosts — one per line</label>
+        <textarea id="hosts" rows="7" spellcheck="false" placeholder="https://example.com&#10;example.org&#10;10.0.0.5:8080"></textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Threads</label>
+          <input id="threads" type="number" min="1" max="50" value="10" />
+        </div>
+        <div class="field">
+          <label>Timeout (s)</label>
+          <input id="timeout" type="number" min="1" value="60" />
+        </div>
+        <div class="field">
+          <label>SAPI rules</label>
+          <select id="sapi">
+            <option value="auto">auto</option>
+            <option value="mod_php">mod_php</option>
+            <option value="fpm">fpm</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Custom headers — "Key: Value" per line (optional)</label>
+        <textarea id="headers" rows="2" spellcheck="false" placeholder="Authorization: Bearer token&#10;Cookie: session=abc"></textarea>
+      </div>
+      <div class="field">
+        <label>Custom paths — one per line (optional, default /index.php)</label>
+        <textarea id="paths" rows="2" spellcheck="false" placeholder="/index.php&#10;/admin.php"></textarea>
+      </div>
+      <label class="chk"><input id="insecure" type="checkbox" /> Disable TLS verification (-k)</label>
+      <div class="btns">
+        <button id="run">▶ Scan</button>
+        <button id="stop" class="ghost" disabled>■ Stop</button>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="panel">
+      <label>Run</label>
+      <div class="status">
+        <div class="bar"><i id="barfill"></i></div>
+        <span id="progress" class="muted">idle</span>
+      </div>
+      <label>Summary</label>
+      <div class="counts" id="counts">
+        <span class="c-vuln">vuln 0</span>
+        <span class="c-safe">safe 0</span>
+        <span class="c-inc">inconclusive 0</span>
+        <span class="c-err">error 0</span>
+      </div>
+      <div class="btns" style="margin-top:14px">
+        <button id="export" class="ghost" disabled>⭳ Export JSON</button>
+        <button id="clearlog" class="ghost">⌫ Clear log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE ACTIVITY -->
+  <div class="logwrap">
+    <div class="loghead" id="loghead">
+      <span class="spin"></span>
+      <label style="margin:0">Live activity</label>
+      <span class="muted" id="elapsed"></span>
+    </div>
+    <div id="log"><div class="ln lg-dim">idle — probes stream here as they fire (control → 1 / 8 / 20 MiB per path)</div></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="toolbar">
+    <label class="chk" style="text-transform:none;letter-spacing:0"><input id="onlyvuln" type="checkbox" /> vulnerable only</label>
+    <span id="rowcount"></span>
+    <span class="muted">· click a row for request/response evidence</span>
+  </div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Host</th><th>Verdict</th><th>Status</th><th>SAPI</th><th>X-Powered-By</th><th>Reason</th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="7" class="empty">No results yet.</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let results = [], ctrl = null, idx = 0, startTs = 0, timer = null;
+
+function vclass(v){ return 'v-' + String(v||'').replace(/[^A-Z]/g,''); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function shortUrl(u){ try{ const p=new URL(u); return p.host+p.pathname; }catch(e){ return u; } }
+
+function bucket(r){
+  if(r.vulnerable === true) return 'vuln';
+  if(r.vulnerable === false) return 'safe';
+  if(r.vulnerable === null && r.verdict==='ERROR') return 'err';
+  return 'inc';
+}
+
+/* ---- live activity log ---- */
+let logLines = [];
+function logClear(msg){ logLines = []; $('log').innerHTML = '<div class="ln lg-dim">'+esc(msg||'cleared')+'</div>'; }
+function logPush(html){
+  logLines.push(html);
+  if(logLines.length>400) logLines.splice(0, logLines.length-400);
+  const el = $('log');
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = logLines.join('');
+  if(atBottom) el.scrollTop = el.scrollHeight;
+}
+function onActivity(a){
+  const host = '<span class="lg-host">'+esc(a.host)+'</span>';
+  const tag  = a.phase==='control' ? 'control' : 'probe '+esc(a.label);
+  if(a.t==='begin'){
+    const kb = a.bytes>=1048576 ? (a.bytes/1048576).toFixed(0)+' MiB' : a.bytes+' B';
+    logPush('<div class="ln"><span class="lg-go">→</span> '+host+'  '+esc(tag)+
+            '  <span class="lg-dim">'+esc(shortUrl(a.url))+'  ('+kb+') sending…</span></div>');
+  } else {
+    let cls='lg-ok', mark='✓', info='';
+    if(a.error){ cls='lg-err'; mark='✗'; info=esc(a.error); }
+    else if(a.status!=null){ info='HTTP '+a.status; if(a.status>=500){cls='lg-warn';mark='!';} }
+    else { info='no response'; cls='lg-warn'; mark='!'; }
+    const waf = a.waf ? '  <span class="lg-err">⚠ '+esc(a.waf)+'</span>' : '';
+    logPush('<div class="ln"><span class="'+cls+'">'+mark+'</span> '+host+'  '+esc(tag)+
+            '  <span class="'+cls+'">'+info+'</span>  <span class="lg-dim">'+esc(a.ms)+'ms</span>'+waf+'</div>');
+  }
+}
+
+/* ---- results table ---- */
+function render(){
+  const only = $('onlyvuln').checked;
+  const view = results.filter(r => !only || r.vulnerable === true);
+  const tb = $('rows');
+  if(!view.length){ tb.innerHTML = '<tr><td colspan="7" class="empty">'+(results.length?'No matching rows.':'No results yet.')+'</td></tr>'; }
+  else {
+    tb.innerHTML = view.map((r,i)=>{
+      const ev = [
+        r.reason ? '<h4>reason</h4><pre>'+esc(r.reason)+'</pre>' : '',
+        r.tested_url ? '<h4>tested url</h4><pre>'+esc(r.tested_url)+'</pre>' : '',
+        r.request ? '<h4>request</h4><pre>'+esc(r.request)+'</pre>' : '',
+        r.response ? '<h4>response</h4><pre>'+esc(r.response)+'</pre>' : '',
+        '<h4>raw json</h4><pre>'+esc(JSON.stringify(r,null,2))+'</pre>'
+      ].join('');
+      return `<tr data-i="${i}">
+        <td class="muted">${r._n}</td>
+        <td class="host">${esc(r.host)}</td>
+        <td class="verdict ${vclass(r.verdict)}">${esc(r.verdict)}${r.waf_blocked?'<span class="wafbadge" title="'+esc(r.waf_signature||'')+'">⚠ WAF</span>':''}</td>
+        <td>${r.status_code==null?'<span class="muted">—</span>':esc(r.status_code)}</td>
+        <td>${esc(r.sapi)||'<span class="muted">—</span>'}</td>
+        <td>${esc(r.powered_by)||'<span class="muted">—</span>'}</td>
+        <td class="muted">${r.waf_blocked?'<span class="wafvendor">'+esc(r.waf_vendor)+'</span> · ':''}${esc(r.reason||r.error||'')}</td>
+      </tr>
+      <tr class="evidence" data-ev="${i}" hidden><td colspan="7">${ev}</td></tr>`;
+    }).join('');
+    tb.querySelectorAll('tr[data-i]').forEach(tr=>{
+      tr.onclick = ()=>{ const ev = tb.querySelector('tr[data-ev="'+tr.dataset.i+'"]'); if(ev) ev.hidden = !ev.hidden; };
+    });
+  }
+  $('rowcount').textContent = results.length ? (view.length+'/'+results.length+' shown') : '';
+  updateCounts();
+}
+function updateCounts(){
+  const c = {vuln:0,safe:0,inc:0,err:0,waf:0};
+  results.forEach(r=>{ c[bucket(r)]++; if(r.waf_blocked) c.waf++; });
+  $('counts').innerHTML =
+    `<span class="c-vuln">vuln ${c.vuln}</span>`+
+    `<span class="c-safe">safe ${c.safe}</span>`+
+    `<span class="c-inc">inconclusive ${c.inc}</span>`+
+    `<span class="c-err">error ${c.err}</span>`+
+    (c.waf?`<span class="c-waf">⚠ waf ${c.waf}</span>`:'');
+}
+
+function setRunning(on){
+  $('run').disabled = on; $('stop').disabled = !on;
+  $('export').disabled = on || !results.length;
+  $('loghead').classList.toggle('on', on);
+  if(on){ startTs=Date.now(); timer=setInterval(()=>{ $('elapsed').textContent='· '+((Date.now()-startTs)/1000).toFixed(1)+'s'; },100); }
+  else if(timer){ clearInterval(timer); timer=null; }
+}
+
+async function runScan(){
+  const hosts = $('hosts').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!hosts.length){ $('progress').textContent='no hosts'; return; }
+  results = []; idx = 0; render();
+  logClear('starting…');
+  $('barfill').style.width='0%'; $('progress').textContent='starting…';
+  setRunning(true);
+  ctrl = new AbortController();
+
+  const body = {
+    hosts,
+    threads: parseInt($('threads').value)||10,
+    timeout: parseInt($('timeout').value)||60,
+    sapi: $('sapi').value,
+    insecure: $('insecure').checked,
+    headers: $('headers').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    paths: $('paths').value.split('\n').map(s=>s.trim()).filter(Boolean),
+  };
+
+  let total = hosts.length, done = 0;
+  try{
+    const res = await fetch('/api/scan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body), signal: ctrl.signal
+    });
+    if(!res.ok){ const e = await res.json().catch(()=>({error:res.statusText}));
+      $('progress').textContent = 'error: '+(e.error||res.status); setRunning(false); return; }
+
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf='';
+    while(true){
+      const {value,done:fin} = await reader.read();
+      if(fin) break;
+      buf += dec.decode(value,{stream:true});
+      let p;
+      while((p = buf.indexOf('\n\n')) >= 0){
+        const frame = buf.slice(0,p); buf = buf.slice(p+2);
+        let ev='message', data='';
+        frame.split('\n').forEach(l=>{
+          if(l.startsWith('event:')) ev=l.slice(6).trim();
+          else if(l.startsWith('data:')) data+=l.slice(5).trim();
+        });
+        if(!data) continue;
+        const d = JSON.parse(data);
+        if(ev==='meta'){ total=d.total; $('progress').textContent=`scanning 0/${total}`; }
+        else if(ev==='activity'){ onActivity(d); }
+        else if(ev==='result'){
+          done=d.done; const r=d.result; r._n=++idx; results.push(r); render();
+          $('barfill').style.width=(100*done/total)+'%';
+          $('progress').textContent=`scanning ${done}/${total}`;
+          logPush('<div class="ln lg-done">● '+esc(r.host)+' → '+esc(r.verdict)+'</div>');
+        } else if(ev==='done'){ $('progress').textContent=`done — ${results.length}/${total}`;
+          logPush('<div class="ln lg-done">── done ('+results.length+'/'+total+') ──</div>'); }
+      }
+    }
+  }catch(err){
+    if(err.name==='AbortError'){ $('progress').textContent=`stopped — ${done}/${total}`; logPush('<div class="ln lg-warn">── stopped ──</div>'); }
+    else { $('progress').textContent='error: '+err.message; logPush('<div class="ln lg-err">── '+esc(err.message)+' ──</div>'); }
+  }finally{ setRunning(false); $('export').disabled=!results.length; }
+}
+
+$('run').onclick = runScan;
+$('stop').onclick = ()=>{ if(ctrl) ctrl.abort(); };
+$('onlyvuln').onchange = render;
+$('clearlog').onclick = ()=>logClear('cleared');
+$('export').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(results,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'php2shell-results-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+fetch('/api/health').then(r=>r.json()).then(d=>{ if(d.cves) $('cve').textContent=d.cves; }).catch(()=>{});
+</script>
+</body>
+</html>

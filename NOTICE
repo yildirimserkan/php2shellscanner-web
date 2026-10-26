@@ -1,0 +1,22 @@
+This repository bundles third-party code.
+
+scanner.py
+----------
+  Author:   assetnote
+  Source:   https://github.com/assetnote/php2shell-scanner
+  Status:   included UNMODIFIED (vendored verbatim)
+
+scanner.py is the detection engine for CVE-2026-109618 / CVE-2026-109619
+and is the sole work of assetnote. It is NOT covered by this repository's
+MIT LICENSE. All rights to scanner.py belong to assetnote and its use is
+governed by assetnote's own license terms at the source above.
+
+Original discovery
+------------------
+  The php2shell technique was first discovered by the Calif team.
+  Write-up: https://calif.io/php2shell/
+
+This repository's own contribution is limited to the web interface
+(app.py, index.html, paths.txt) which wraps the upstream engine without
+altering it. If you reuse scanner.py, consult the upstream project for its
+licensing terms.
